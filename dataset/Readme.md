@@ -5,7 +5,7 @@ kaggle比赛数据下载链接：https://www.kaggle.com/c/petfinder-pawpularity-
 
 	test需要进行最终进行预测的图片存储路径
 	
-	**train官方给的训练数据集（文件太大，需要自行下载数据放在里面）**
+ 	**train官方给的训练数据集（文件太大，需要自行下载数据放在里面**
 	
 	dataset.py数据集类，返回img,feature,label
 	
