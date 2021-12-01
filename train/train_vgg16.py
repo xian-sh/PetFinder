@@ -19,7 +19,8 @@ os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # device = torch.device("cpu")
 # 准备数据集
-root_dir = "../PetFinder/dataset"
+# 这里把PetFInder作为根目录，右击该文件夹->Make Directory as...->root
+root_dir = "../dataset"
 image_dir = "train"
 label1_dir = "train_data.csv"
 label2_dir = "val_data.csv"
@@ -46,7 +47,7 @@ train_dataloader = DataLoader(train_dataset, batch_size=batch, drop_last=True)
 val_dataloader = DataLoader(val_dataset, batch_size=batch, drop_last=True)
 # 创建网络模型
 model = Model()
-model.load_state_dict(torch.load('./checkpoint/VGG16_Cats_Dogs_val.pth'))
+model.load_state_dict(torch.load('../checkpoint/VGG16_Cats_Dogs_val.pth'))
 model = model.to(device)
 
 # 损失函数
@@ -62,8 +63,8 @@ optimizer = torch.optim.SGD(model.classifier.parameters(), lr=0.01, momentum=0.5
 Accuracy = []
 Loss = []
 Val_Accuracy = []
-BEST_VAL_ACC = np.loadtxt('./checkpoint/vgg_val_acc.txt')
-BEST_TR_ACC = np.loadtxt('./checkpoint/vgg_train_acc.txt')
+BEST_VAL_ACC = np.loadtxt('../checkpoint/vgg_val_acc.txt')
+BEST_TR_ACC = np.loadtxt('../checkpoint/vgg_train_acc.txt')
 
 # 训练
 
@@ -161,15 +162,15 @@ for epoch in range(200):
         print('Find Better Model and Saving it...')
         if not os.path.isdir('checkpoint'):
             os.mkdir('checkpoint')
-        torch.save(model.state_dict(), './checkpoint/VGG16_Cats_Dogs_val.pth')
+        torch.save(model.state_dict(), '../checkpoint/VGG16_Cats_Dogs_val.pth')
         BEST_VAL_ACC = acc
         ACC_val = []
         ACC_val.append(BEST_VAL_ACC)
-        np.savetxt('./checkpoint/vgg_val_acc.txt', ACC_val, fmt='%.04f')
+        np.savetxt('../checkpoint/vgg_val_acc.txt', ACC_val, fmt='%.04f')
         BEST_TR_ACC = run_accuracy
         ACC_train = []
         ACC_train.append(BEST_TR_ACC)
-        np.savetxt('./checkpoint/vgg_train_acc.txt', ACC_train, fmt='%.04f')
+        np.savetxt('../checkpoint/vgg_train_acc.txt', ACC_train, fmt='%.04f')
         print('Saved!')
     #
     # # fig3, ax3 = plt.subplots(figsize=(11, 8))
