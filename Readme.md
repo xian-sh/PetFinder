@@ -1,3 +1,5 @@
+kaggle比赛数据下载链接：https://www.kaggle.com/c/petfinder-pawpularity-score/
+
 程序运行环境：
 IDE:pycharm
 基础库：pytorch
