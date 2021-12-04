@@ -2,7 +2,7 @@
 from PetFinder.models.vgg16 import *
 from PetFinder.dataset.dataset import *
 from torchvision import transforms
-import torchvision
+from torch.utils.tensorboard import SummaryWriter
 import torch
 from torch import nn
 from torch.utils.data import DataLoader
@@ -38,7 +38,7 @@ train_data_size = len(train_dataset)
 val_data_size = len(val_dataset)
 # 如果train_data_size=10, 训练数据集的长度为：10
 print("训练数据集的长度为：{}".format(train_data_size))
-print("验证数据集的长度为：{}".format(val_data_size))
+#print("验证数据集的长度为：{}".format(val_data_size))
 
 # 格式转换
 # 利用 DataLoader 来加载数据集
@@ -47,16 +47,14 @@ train_dataloader = DataLoader(train_dataset, batch_size=batch, drop_last=True)
 val_dataloader = DataLoader(val_dataset, batch_size=batch, drop_last=True)
 # 创建网络模型
 model = Model()
-model.load_state_dict(torch.load('../checkpoint/VGG16_Cats_Dogs_val.pth'))
+model.load_state_dict(torch.load('../checkpoint/VGG16_Cats_Dogs_loss1.pth'))
 model = model.to(device)
 
 # 损失函数
 loss_fn = nn.CrossEntropyLoss()
 loss_fn = loss_fn.to(device)
 # 优化器
-'''optimizer = torch.optim.SGD(
-            filter(lambda p: p.requires_grad, model.parameters()),  # 记住一定要加上filter()，不然会报错。 filter用法：https://www.runoob.com/python/python-func-filter.html
-            lr=1e-5,nesterov=False) #weight_decay=1e-6,'''
+
 optimizer = torch.optim.SGD(model.classifier.parameters(), lr=0.01, momentum=0.5)
 
 # 保存每个epoch后的Accuracy Loss Val_Accuracy
@@ -65,17 +63,15 @@ Loss = []
 Val_Accuracy = []
 BEST_VAL_ACC = np.loadtxt('../checkpoint/vgg_val_acc.txt')
 BEST_TR_ACC = np.loadtxt('../checkpoint/vgg_train_acc.txt')
-
+Min_Loss = np.loadtxt('../checkpoint/vgg_loss_acc.txt')
 # 训练
 
-
-for epoch in range(200):
+writer = SummaryWriter("../logs_loss")
+for epoch in range(5):
+    print("---------------------第 {} 轮训练开始---------------------".format(epoch + 1))
     since = time.time()
-    train_loss = 0.
-    train_accuracy = 0.
-    run_accuracy = 0.
-    run_loss = 0.
-    total = 0.
+    total_train_loss = 0.
+    total_accuracy = 0.
     model.train()
     for i,(imgs, feature, labels) in enumerate(train_dataloader, 0):
         imgs = imgs.to(device)
@@ -85,104 +81,40 @@ for epoch in range(200):
         # 优化器优化模型
         optimizer.zero_grad()
         outs = model(imgs, feature)
-        # labels = torch.reshape(labels, (-1, 1))
-        # labels = labels.squeeze()
-        loss = loss_fn(outs, labels.long())
+        loss = loss_fn(outs, labels)
         loss.backward()
         optimizer.step()
 
         #      输出状态
-        total += labels.size(0)
-        run_loss += loss.item()
+        total_train_loss = total_train_loss + loss.item()
         _, prediction = torch.max(outs, 1)
-        run_accuracy += (prediction == labels).sum().item()
+        total_accuracy += (prediction == labels).sum().item()
 
         if i % 20 == 19:
-            print('epoch {}, iter{},train accuracy:{:4f}% loss: {:.4f}'.format(epoch, i + 1, 100 * run_accuracy / (
-                        labels.size(0) * 20), run_loss / 20))
-            train_accuracy += run_accuracy
-            train_loss += run_loss
-            run_accuracy, run_loss = 0., 0.
-
-    Loss.append(train_loss / total)
-    Accuracy.append(100 * train_accuracy / total)
-    # if Accuracy[epoch] > BEST_TR_ACC:
-    #     print('Find Better Model and Saving it...')
-    #     if not os.path.isdir('checkpoint'):
-    #         os.mkdir('checkpoint')
-    #     torch.save(model.state_dict(), './checkpoint/VGG16_Cats_Dogs.pth')
-    #     BEST_TR_ACC = Accuracy[epoch]
-    #     ACC = []
-    #     ACC.append(BEST_TR_ACC)
-    #     np.savetxt('./checkpoint/train_acc.txt',ACC ,fmt='%.04f')
-    #     print('Saved!')
-    # time_elapsed = time.time() - since
-    # print('Training complete in {:.0f}m {:.0f}s'.format(time_elapsed // 60, time_elapsed % 60))
-    # print('Now the best train Acc is {:.4f}%'.format(BEST_TR_ACC))
-    # # 可视化训练过程
-    # fig1, ax1 = plt.subplots(figsize=(11, 8))
-    # ax1.plot(range(0, epoch + 1, 1), Accuracy)
-    # ax1.set_title("Average trainset accuracy vs epochs")
-    # ax1.set_xlabel("Epoch")
-    # ax1.set_ylabel("Avg. train. accuracy")
-    # plt.savefig('Train_accuracy_vs_epochs.png')
-    # plt.clf()
-    # plt.close()
-    #
-    # fig2, ax2 = plt.subplots(figsize=(11, 8))
-    # ax2.plot(range(epoch + 1), Loss)
-    # ax2.set_title("Average trainset loss vs epochs")
-    # ax2.set_xlabel("Epoch")
-    # ax2.set_ylabel("Current loss")
-    # plt.savefig('loss_vs_epochs.png')
-    #
-    # plt.clf()
-    # plt.close()
-
-    #   验证
-    acc = 0.
-    model.eval()
-    print('waitting for val...')
-    with torch.no_grad():
-        accuracy = 0.
-        total = 0
-        for data in val_dataloader:
-            imgs, feature, labels = data
-            imgs = imgs.to(device)
-            feature = feature.to(device)
-            labels = labels.to(device)
-            out = model(imgs, feature)
-            _, prediction = torch.max(out, 1)
-            total += labels.size(0)
-            accuracy += (prediction == labels).sum().item()
-            acc = 100. * accuracy / total
-    print('epoch {} The ValSet accuracy is {:.4f}% \n'.format(epoch, acc))
-    Val_Accuracy.append(acc)
-    if acc > BEST_VAL_ACC or (acc == BEST_VAL_ACC and run_accuracy > BEST_TR_ACC):
+            print('epoch {}, iter{}, loss: {:.4f}'.format(epoch+1,i+1, loss.item() / batch))
+        writer.add_scalar("train_loss", loss.item(), i)
+    Loss.append(total_train_loss / train_data_size)
+    Accuracy.append(total_accuracy / train_data_size)
+    print("epoch {}在整体训练集上的平均损失: {:.4f}".format(epoch+1,total_train_loss / train_data_size))
+    print("epoch {}在整体训练集上的正确率: {:.4f}%".format(epoch+1,100*total_accuracy / train_data_size))
+    writer.add_scalar("train_loss", total_train_loss / train_data_size, epoch)
+    writer.add_scalar("train_accuracy", total_accuracy / train_data_size, epoch)
+    if Loss[epoch] < Min_Loss:
         print('Find Better Model and Saving it...')
         if not os.path.isdir('checkpoint'):
             os.mkdir('checkpoint')
-        torch.save(model.state_dict(), '../checkpoint/VGG16_Cats_Dogs_val.pth')
-        BEST_VAL_ACC = acc
-        ACC_val = []
-        ACC_val.append(BEST_VAL_ACC)
-        np.savetxt('../checkpoint/vgg_val_acc.txt', ACC_val, fmt='%.04f')
-        BEST_TR_ACC = run_accuracy
-        ACC_train = []
-        ACC_train.append(BEST_TR_ACC)
-        np.savetxt('../checkpoint/vgg_train_acc.txt', ACC_train, fmt='%.04f')
+        torch.save(model.state_dict(), '../checkpoint/VGG16_Cats_Dogs_loss1.pth')
+        Min_Loss = Loss[epoch]
+        ACC = []
+        ACC.append(Min_Loss)
+        np.savetxt('../checkpoint/vgg_loss_acc.txt',ACC ,fmt='%.04f')
         print('Saved!')
-    #
-    # # fig3, ax3 = plt.subplots(figsize=(11, 8))
-    # #
-    # # ax3.plot(range(epoch + 1), Val_Accuracy)
-    # # ax3.set_title("Average Val accuracy vs epochs")
-    # # ax3.set_xlabel("Epoch")
-    # # ax3.set_ylabel("Current Val accuracy")
-    # #
-    # # plt.savefig('val_accuracy_vs_epoch.png')
-    # # plt.close()
     time_elapsed = time.time() - since
     print('Training complete in {:.0f}m {:.0f}s'.format(time_elapsed // 60, time_elapsed % 60))
-    print('Now the best val Acc is {:.4f}%'.format(BEST_VAL_ACC))
-    print('Now the train Acc is {:.4f}%'.format(Accuracy[epoch]))
+    print('Now the minimum loss is {:.4f}'.format(Min_Loss))
+
+writer.close()
+
+
+
+
